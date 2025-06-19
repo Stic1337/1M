@@ -1,0 +1,113 @@
+# Настроить роутер HQ-RTR
+	login: admin
+	password: admin
+	en (enable) # Включить роутер
+	conf (configure) # Войти в конфигурацию
+
+	# Добавить первый интерфейс (глобальный)
+	int (interface) int1 # Создать интерфейс [название (int1)]
+	ip add (address) 172.16.4.2/24 # Выдать IP-адрес [адрес/маска]
+	exit # Выйти из конфигурации
+
+	# Добавить второй интерфейс (локальный)
+	int (interface) int2
+	ip add (address) 10.10.20.1/24
+	exit
+
+	write # Сохранить настройки
+	do sh ip int br # Посмотреть все интерфейсы
+
+	# Вставить порт te0 в int1
+	port te0 # Настройки порта TenEthernet0 (10 ГБит интернет)
+	service-instance te0/int1 # Задать имя порту
+	encapsulation untagged # Активировать все вышеописанное
+	connect ip int (interface) int1 # Включить интерфейс
+	exit
+
+	# Вставить порт te1 в int2
+	port te1
+	service-instance te1/int2
+	encapsulation untagged
+	connect ip int (interface) int2
+	exit
+
+	write
+	do sh port br # Посмотреть все вставленные порты
+	exit
+	conf
+	ip route 0.0.0.0/0 172.16.4.1 # Перебросить весь трафик с te0 на te1
+	conf
+
+	# Настроить NAT в int1
+	int (interface) int1 # Настроить интерфейс
+	ip nat outside # Выходящий трафик nat
+	exit 
+
+	# Настроить NAT в int2
+	int int2
+	ip nat inside # Входящий трафик nat
+	exit
+
+	ip nat pool NAT_POOL 10.10.20.1-10.10.20.254 # Создать пул адресов для NAT-сети ip nat pool [имя] [пул адресов]
+	ip nat source dynamic inside-to-outside pool NAT_POOL overload interface int1 # Трафик может идти в обе стороны
+	exit
+	write
+
+# Настройка HQ-CLI
+	apt get update && apt get upgrade
+	reboot
+	Настроить сеть:
+		method: Manual
+		address: 10.10.20.100
+		mask: 24
+		gateway: 10.10.20.1
+		DNS: 10.10.20.1 8.8.8.8
+		Выключить-включить интернет
+
+# Настройка DHCP в Cisco (после того, как настроили интернет)
+	ip pool DHCP_POOL 1 # Создать и войти в конфигурацию пула адресов
+	range 10.10.20.1-10.10.20.254 # Задать диапазон доступных адресов
+	exit
+	dhcp-server 1 # Создать DHCP и войти в конфигурацию
+	lease 86400 # Задать время аренды адреса, секунды (по умолчанию 3600)
+	mask 255.255.255.0
+	pool DHCP_POOL 1 # Войти в конфигурацию DHCP_POOL
+	dns 10.10.20.1 # Указать DNS для адресов
+	domain-name kkt.org # Указать доменное имя
+	gateway 10.10.20.1
+	mask 255.255.255.0
+	write
+	exit
+	exit
+	int int2
+	dhcp-server 1 # Войти в конфигурацию dhcp-server интерфейса int2
+	write
+	exit
+	exit
+	sh dhcp-server clients int2 # Посмотреть все выданные DHCP адреса у int2
+
+# Настройка VPN-туннеля (возможно нерабочий)
+conf
+int tunnel.1
+ip mtu 1400 # Максимальное количество байт в пакетах данных
+ip add 172.16.1.1/24
+ip tunnel 172.16.4.2 172.16.5.2 mode gre # Создать туннель между HQ-RTR и BR-RTR по протоколу GRE
+ip route 0.0.0.0/0 172.16.4.1
+router ospf 1 # Создать и войти в конфигурацию роутера
+network 172.16.1.0 0.0.0.3 area 0.0.0.0 # Задать глобальную сеть (красную)
+network 10.10.20.0 0.0.0.255 area 0.0.0.0 # Задать локальную сеть (зеленую)
+int tunnel.1
+ip ospf authentication message-digest # Включить режим аутентификации на интерфейсе
+ip ospf message-digest-key 1 md5 Demo2025 # Задать ключ и использование хеша md5 ip ospf message-digest-key [key_id] md5 [key]
+ip ospf network point-to-point # Тип сети, из одной точки в другую точку и наоборот
+write
+exit
+
+sh ip ospf neighbor # Показать соседей
+sh ip ospf int brief # Показать интерфейсы 
+sh ip route # Показать перенаправление трафика
+
+> Настроить второй филиал BR аналогично
+> https://github.com/Barmenkov/HQ-RTR/tree/main
+> no int [название интерфейса] # Удалить интерфейс
+
