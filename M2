@@ -1,0 +1,51 @@
+apt get update && apt get upgrade
+br-srv:
+apt-get install task-samba-dc
+em /etc/samba/smb.conf
+rm -rf /var/lib/samba/
+rm -rf /var/cache/samba/
+mkdir -p /var/lib/samba/sysval/
+# vim /etc/resolv.conf  # nameserver 127.0.0.1  # do it if don't work down
+samba-tool domain provision --realm=au-team.irpo --domain=au-team --adminpass='654987' --dns-backend=SAMBA_INTERNAL --option="dns forwarder = 192.168.100.2" --server-role=dc --use-rfc2307
+cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
+systemctl enable --now samba
+samba-tool domain info 127.0.0.1
+apt-get install bind-utils
+kinit administrator@AU-TEAM.IRPO
+
+samba-tool user add user1.hq
+samba-tool user add user2.hq
+samba-tool user add user3.hq
+samba-tool user add user4.hq
+
+hq-cli:
+sudo -i
+apt-get install task-auth-ad-sssd admc gpui
+# center control sys -> auth -> workgroup: au-team
+Reboot
+cancel user session
+login like administrator
+apps -> sys -> ADMC -> auteam -> users: create group and tools
+
+sudo -i
+control sudo  # wheelonly
+control sudo public
+vim /etc/sudoers  # under %wheel ALL add "%hq ALL=(root) /usr/bin/id. /bin/cat (:wq!)
+
+hq-srv:  # storage
+apt-get install mdadm nfs-server
+lsblk
+mdadm --create /dev/md0 -l 5 -n 3 /dev/sd{b,c,d}
+lsblk
+echo "DEVICE partitions" > /etc/mdadm.conf
+mdadm --detail --scan | awk '/ARRAY/ {print}' >> /etc/mdadm.conf
+mkfs.ext4 /dev/md0
+mkdir /raid5  # like in task
+blkid /dev/md0 >> /etc/fstab
+vim /etc/fstab  # rm /dev/md0:; start since UUID; del " and all after it; add after /raid5 ext4 defaults 0 0
+mount -a
+lsblk
+mkdir /raid5/nfs
+vim /etc/exports  # /raid5/nfs 192.168.64/20(sync.rw.no_root_squash)
+systemctl enable --now nfs-server
+exportfs
