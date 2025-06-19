@@ -87,6 +87,8 @@ hq-srv: (hq-cli have to be DHCP)
   echo "nameserver 77.88.8.8" > /etc/net/ifaces/ens19/resolv.conf  # set dns
   systemctl restart network
   ip -c a  # check
+
+virtual commutator confed too
   ip -c r  # check gateway
   cat /etc/resolv.conf  # check dns
   ping -c3 192.168.100.1  # ping hq-rtr (int vl100)
