@@ -1,0 +1,74 @@
+EcoRouters:
+  en
+  conf
+  hostname hq-rtr
+  ip domain-name au-team.irpo
+  write memory
+ALT-lin:
+  hostnamectl set-hostname hq-srv.au-team.irpo; exec bash  # hq-srv(name).au-team.irpo(domain_name)
+  hostname -f  # check
+  CLI: administration -> system management center -> Network (Eth int) -> comp name: hq-cli.au-team.irpo  # reboot
+
+IPconf:
+hq-rtr:
+  en
+  conf
+  int isp
+  description "connect ISP"
+  ip address 172.16.4.14/28
+  exit
+
+  port te0
+  service-instance te0/isp
+  encapsulation untagged
+  connect ip interface isp
+  exit
+  exit
+  sh ip int br  # check
+
+  int vl100
+  ip address 192.168.100.1/26
+  exit
+  int vl200
+  ip address 192.168.100.65/28
+  exit
+  int vl300
+  ip address 192.168.100.81/29
+  exit
+
+  port te1
+  service-instance te1/vl100
+  encapsulation dot1q 100 exact
+  rewrite pop 1
+  connect ip interface vl100
+  exit
+  service-instance te1/vl200
+  encapsulation dot1q 200 exact
+  rewrite pop 1
+  connect ip interface vl200
+  exit
+  service-instance te1/vl300
+  encapsulation dot1q 300 exact
+  rewrite pop 1
+  connect ip interface vl300
+  exit
+  write memory
+  do sh ip int br  # check
+  ip route 0.0.0.0/0 172.16.4.1
+  write memory
+hq-srv: (hq-cli have to be DHCP)
+  ip -c a  # check int (for ex. ens 19)
+  ls /etc/net/ifaces/ # check ints (for ex. ens 18)
+  # Need same names from both above checks!
+  mv /etc/net/ifaces/ens1{8.9}/  #rename
+  ls /etc/net/ifaces/  # one more check
+  vim /etc/net/ifaces/ens19/options  # delete all exclude TYPE=eth (:wq!)
+  echo "192.168.100.2/26" > /etc/net/ifaces/ens19/ipv4address  # set IP
+  echo "default via 192.168.100.1" > /etc/net/ifaces/ens19/ipv4route  # set gateway
+  echo "nameserver 77.88.8.8" > /etc/net/ifaces/ens19/resolv.conf  # set dns
+  systemctl restart network
+  ip -c a  # check
+  ip -c r  # check gateway
+  cat /etc/resolv.conf  # check dns
+  ping -c3 192.168.100.1  # ping hq-rtr (int vl100)
+  
