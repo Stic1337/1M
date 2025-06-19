@@ -1,0 +1,62 @@
+hq-rtr:
+  router ospf 1
+  ospf router-id 10.10.10.1
+  passive-interface default
+  no passive-interface tunnel.0
+  network 10.10.10.0/30 area 0
+  network 192.168.100.0/26 area 0
+  network 192.168.100.64/28 area 0
+  network 192.168.100.80/29 area 0
+  exit
+  int tunnel.0
+  ip ospf authentication message-digest
+  ip ospf message-digest-key 1 md5 654987
+  exit
+  write memory
+Exactly actions for br-rtr  # execpt "ospf router-id 10.10.10.2"; and only one network "network 192.168.200.0/26 area 0" with "network 10.10.10.0/30 area 0"
+
+Ping hq-srv and br-srv for check
+
+NAT:
+hq-rtr:
+  int isp
+  ip nat outside
+  exit
+  int vl100
+  ip nat inside
+  exit
+  # same for vl200 and vl300
+  ip nat pool HQ 192.168.100.1-192.168.100.254
+  ip nat source dunamic inside-to-outside pool HQ overload interface isp
+  write memory
+  Ping internet from hq-srv for check
+Exactly actions for br-rtr except IP and HQ(BR) and ints
+
+DHCP:
+  hq-rtr:
+  ip pool HQ 192.168.100.66-192.168.100.78
+  dhcp-server 1
+  pool HQ 1
+  mask 28
+  gateway 192.168.100.65
+  dns 192.168.100.2
+  domain-name au-team.irpo
+  exit
+  exit
+  int vl200
+  dhcp-server 1
+  write memory
+  # Check working from hq-CLI
+
+DNS:
+hq-srv:
+apt-get update && apt-get install bind bind-utils -y
+vim /etc/bind/options.conf  # listen-on ( 192.168.100.2; };; listen-on-v6 ( none; };; forwarders {77.88.8.8; };; allow-query { any; };; allow-recursion { any; }; (:wq!)
+vim /etc/bind/rfc1912.conf  # add "zone "au-team.irpo" {/n type master;/n file "au-team.irpo";/n};" and "zone "100.168.192.in-addr.arpa" {/n type master;/n file "100.168.192.in-addr.arpa";/n};" (:wq!)
+cp /etc/bind/zone/empty /etc/bind/zone/au-team.irpo
+vim /etc/bind/zone/au-team.irpo  # :%s/localhost/au-team.irpo/g or (9); add "IN A 192.168.100.2 /n hq-srv IN A 192.168.100.2
+cp /etc/bind/zone/au-team.irpo /etc/bind/zone/100.168.192.in-addr.arpa
+vim /etc/bind/zone/100.168.192.in-addr.arpa  # add "2 IN PTR hq-srv.au-team.irpo.
+chown root:named /etc/bind/zone/au-team.irpo
+chown root:named /etc/bind/zone/100.168.192.in-addr.arpa
+systemctl enable --now bind
