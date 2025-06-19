@@ -1,0 +1,12 @@
+hq-srv:
+  vim /etc/openssh/sshd_config  # Port 2024 (for ex., write needable port from task); under Logging: AllowUsers sshuser; MaxAuthTries 2; Banner /etc/openssh/banner (:wq!)
+  echo "contentOfBanner" > /etc/openssh/banner
+  systemctl restart sshd.service
+  systemctl status sshd.service
+hq-rtr:
+  int tunnel.0
+  ip address 10.10.10.1/30
+  ip tunnel 172.16.4.14 172.16.5.14 mode gre
+  exit
+  write memory
+  # exactly actions in br-rtr except "ip tunnel 172.16.5.14 172.16.4.14 mode gre" and ip address 10.10.10.2/30 (ping for check)
