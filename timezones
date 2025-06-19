@@ -1,0 +1,15 @@
+ALT:
+timedatactl
+timedatactl set timezone (Asia/Kamchatka or utc+12)
+
+EcoRouter:
+do sh ntp timezone
+ntp timezone utc+12
+write memory
+
+ISP:
+If utc+0000:
+  apt-get install tzdata
+  timedatactl set-timezone (Asia/Kamchatka or utc+12)
+else:
+  same like in ALT
