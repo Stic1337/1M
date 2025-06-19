@@ -1,13 +1,32 @@
 EcoRouters:
+  Rename:
   en
   conf
   hostname hq-rtr
   ip domain-name au-team.irpo
   write memory
+  AddUsers:
+  username net_admin
+  password 654987
+  role admin
+  exit
+  write memory
+  sh users localdb  # check
+  
 ALT-lin:
+  Rename:
   hostnamectl set-hostname hq-srv.au-team.irpo; exec bash  # hq-srv(name).au-team.irpo(domain_name)
   hostname -f  # check
   CLI: administration -> system management center -> Network (Eth int) -> comp name: hq-cli.au-team.irpo  # reboot
+  AddUsers:
+  useradd sshuser -u1010
+  passwd sshuser  # after this two times pass
+  user -aG wheel sshuser
+  echo "sshuser ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers
+  su - sshuser  # login for check (whoami)
+  sudo -i
+  exit
+  exit
 
 IPconf:
 hq-rtr:
